@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 from dateutil import parser
 from dateutil.relativedelta import relativedelta
+from collections import OrderedDict
 
 
 
@@ -29,6 +30,7 @@ API_info = [
      {"/api/v1.0/<start>": "Returns min/avg/max temp from supplied date onwards"},
      {"/api/v1.0/<start>/<end>": "Returns min/avg/max temp between a start and end date"},
      ]
+# defining a function to validate if string representation is a valid date in YYYY-MM-DD format
 
 ####### initializing sqlalchemy environment ###########
 # starting a sqlalchemy engine
@@ -71,9 +73,9 @@ def precipation():
 
   
     # query to get 12 months data and save in a pandas dataframe, set index to date
-    df = pd.read_sql(session.query(Measurement.date, func.avg(Measurement.prcp).label('prcp')).group_by(Measurement.date).filter(Measurement.date > one_year_ago1).order_by((Measurement.date)).statement, session.bind)
+    df = pd.read_sql(session.query(Measurement.date, func.avg(Measurement.prcp).label('precipitation')).group_by(Measurement.date).filter(Measurement.date > one_year_ago1).order_by((Measurement.date)).statement, session.bind)
     df.set_index('date', drop=True, inplace=True)
-    df.prcp = round(df.prcp,2)
+    df.precipitation = round(df.precipitation,2)
     #convert dataframe to dictionary for returning the data
     dict_prcp = df.to_dict(orient ='dict')
     return jsonify(dict_prcp)
@@ -88,7 +90,8 @@ def stations():
 
     # Query desired data from database, convert to dictionary and returns
     df = pd.read_sql(session.query(Station.station, Station.name, Station.latitude, Station.longitude, Station.elevation).statement, session.bind)
-    dict_stations = df.to_dict(orient ='records')
+    dict_stations = df.to_dict(orient= 'records')
+  
     return jsonify(dict_stations)
 #################################################
 
@@ -171,7 +174,10 @@ def start_to_end(start, end):
         latest_date_str = session.query(Measurement.date).order_by(desc(Measurement.date)).first()[0]
         latest_date_dt = datetime.strptime(latest_date_str, "%Y-%m-%d")
     except:
-        return f"ensure you have entered a valid date in YYYY-MM-DD format"
+        return f"Error..ensure you have entered a valid date in YYYY-MM-DD format"
+
+    if (start_date_dt > end_date_dt):
+    	return (f" Error.. end date should be after start date")
 
     if (start_date_dt<=latest_date_dt) and (end_date_dt>=earliest_date_dt):
         try:
@@ -190,6 +196,7 @@ def start_to_end(start, end):
         return f"sorry..but databse has records starting {earliest_date_str} only"
     elif (end_date_dt > latest_date_dt):
         return f"sorry..but databse has records upto {latest_date_str} only"
+    
     else:
 	    return (f" Sorry.. the records are available only from {earliest_date_str} to {latest_date_str}")
 
